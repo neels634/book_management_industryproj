@@ -19,9 +19,6 @@ React (Vite, :5173)  ──/api──▶  Express REST API (:5000)  ──Mongoo
 |---|---|
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Architecture, folder structure, database design, roles & permissions, workflows, development plan |
 | [docs/BUSINESS_RULES.md](docs/BUSINESS_RULES.md) | Domain requirements, assumptions, business rules and edge cases (Stage 2) |
-| [docs/API.md](docs/API.md) | Every REST endpoint with request/response examples and error codes |
-| [docs/TESTING.md](docs/TESTING.md) | Testing strategy and how each real-world scenario is covered (Stage 3) |
-| [docs/DEMO.md](docs/DEMO.md) | Step-by-step live demonstration script (Stage 4) |
 
 ## Quick start
 
