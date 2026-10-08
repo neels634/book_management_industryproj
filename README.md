@@ -1,97 +1,58 @@
-# Folio — Book Management System
+# Book Management System
 
-A full-stack library management system: catalogue, members, circulation (issue / return / renew / lost), automatic overdue detection and fines, reports and role-based access.
+- **Frontend:** React Native (Expo): runs on mobile, web and desktop browsers
+- **Backend:** Python FastAPI
+- **Database:** SQL (SQLite locally, AWS RDS in production)
 
-| Layer | Technology |
-|---|---|
-| Frontend | React 18, React Router 6, Axios, Tailwind CSS, Recharts (Vite) |
-| Backend | Node.js, Express 4, JWT, bcrypt, zod validation, Helmet, rate limiting |
-| Database | MongoDB with Mongoose 8 (multi-document transactions on a replica set) |
-| Tests | Jest + Supertest + real MongoDB (mongodb-memory-server), Vitest + React Testing Library |
+Features: books, members, issue / return, overdue fines, and a dashboard.
 
-```
-React (Vite, :5173)  ──/api──▶  Express REST API (:5000)  ──Mongoose──▶  MongoDB (replica set)
-```
-
-## Documentation
-
-| Document | Contents |
-|---|---|
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Architecture, folder structure, database design, roles & permissions, workflows, development plan |
-| [docs/BUSINESS_RULES.md](docs/BUSINESS_RULES.md) | Domain requirements, assumptions, business rules and edge cases (Stage 2) |
-
-## Quick start
-
-Prerequisites: **Node.js 18+** (tested on Node 24). MongoDB is optional — the project can run its own local MongoDB.
-
-### 1. Backend
+## Run the backend
 
 ```bash
 cd backend
-npm install
-cp .env.example .env        # then set JWT_SECRET (see the comment in the file)
+python -m venv .venv
+.venv\Scripts\activate          # macOS/Linux: source .venv/bin/activate
+pip install -r requirements.txt
+python seed.py                  # optional sample data
+uvicorn app.main:app --reload --port 8000
 ```
 
-Start a database — pick one:
+API docs: http://localhost:8000/docs
 
-* **No MongoDB installed:** `npm run db:memory` (keep this terminal open). It starts a local single-node replica set on port 27017 and stores data in `backend/.data/`. The first run downloads the MongoDB binary (~100 MB).
-* **Your own MongoDB / Atlas:** set `MONGODB_URI` in `.env`. Use a replica set (Atlas always is) so issue/return run inside real transactions. A standalone `mongod` also works; see [Consistency without transactions](docs/ARCHITECTURE.md#consistency-without-transactions).
-
-Load the demo data and start the API:
-
-```bash
-npm run seed          # first time; `npm run seed:reset` wipes and reloads
-npm run dev           # http://localhost:5000/api
-```
-
-### 2. Frontend
+## Run the frontend
 
 ```bash
 cd frontend
 npm install
-npm run dev           # http://localhost:5173
+npm run web        # browser / desktop
+npm start          # scan the QR code with Expo Go on a phone
 ```
 
-The Vite dev server proxies `/api` to `http://localhost:5000`, so no CORS setup is needed in development.
+On a phone, `localhost` means the phone itself. Start Expo with your computer's LAN address:
+`EXPO_PUBLIC_API_URL=http://192.168.1.10:8000 npm start`, and run uvicorn with `--host 0.0.0.0`.
 
-### Demo accounts (seed data)
+## Production (AWS RDS)
 
-| Role | Username | Password |
+Set `DATABASE_URL` to the RDS database and install its driver, e.g. for PostgreSQL:
+
+```bash
+pip install psycopg2-binary
+DATABASE_URL=postgresql://user:password@your-db.xxxxx.rds.amazonaws.com:5432/library
+```
+
+Tables are created automatically on start-up.
+
+| Setting | Default | Meaning |
 |---|---|---|
-| Admin | `admin` | `Admin@1234` |
-| Librarian | `librarian` | `Librarian@1234` |
-| Member | `member` | `Member@1234` |
+| `DATABASE_URL` | `sqlite:///./library.db` | Database connection |
+| `LOAN_DAYS` | `14` | Loan period |
+| `FINE_PER_DAY` | `5` | Fine per overdue day (₹) |
+| `CORS_ORIGINS` | `*` | Allowed frontend origins (comma-separated) |
 
-The login page has one-click buttons for these in development builds. **Change or remove them before any real deployment.**
+## Rules
 
-The seed contains 9 categories, 38 titles (139 copies), 16 members and about 90 transactions over six months. Those include on-time and late returns, paid and unpaid fines, damaged returns, a lost book, and current overdue loans.
-
-## Running the tests
-
-```bash
-cd backend && npm test        # 90 API, business-rule, concurrency and DB tests
-cd frontend && npm test       # 35 component / page tests
-```
-
-Backend tests run against a real in-memory MongoDB replica set (and one suite against a standalone server), not mocks.
-
-## Production build
-
-```bash
-cd frontend && npm run build          # static files in frontend/dist
-cd backend && NODE_ENV=production npm start
-```
-
-Serve `frontend/dist` from any static host or CDN and point `VITE_API_URL` at the API (or reverse-proxy `/api`). Set `CORS_ORIGINS` to the frontend's origin and use a JWT secret of at least 32 characters (the server refuses to start in production otherwise).
-
-## Environment variables
-
-See [backend/.env.example](backend/.env.example) and [frontend/.env.example](frontend/.env.example). Key ones:
-
-| Variable | Purpose |
-|---|---|
-| `MONGODB_URI` | MongoDB connection string (replica set recommended) |
-| `JWT_SECRET` / `JWT_EXPIRES_IN` | Token signing secret and lifetime |
-| `CORS_ORIGINS` | Comma-separated allowed browser origins |
-| `TZ` | Timezone for due dates and monthly reports |
-| `DEFAULT_FINE_PER_DAY`, `DEFAULT_LOAN_PERIOD_DAYS`, `DEFAULT_BORROWING_LIMIT` | Initial library policy (afterwards edited in **Settings → Circulation policy**) |
+- A book can only be issued if a copy is available.
+- A member can't borrow more than their borrowing limit (default 3).
+- Fine = overdue days × fine per day, charged on return.
+- A book or member with books on loan can't be removed. Removal is a soft delete, so loan history is kept.
+- ISBNs must be valid and unique; member e-mails must be unique.
